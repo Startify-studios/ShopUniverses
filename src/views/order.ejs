@@ -14,7 +14,28 @@
 
     <% if (order.status === 'pendiente') { %>
     <section class="card">
-        <% if (order.paymentMethod === 'wompi' && wompi) { %>
+        <% if (order.paymentMethod === 'wompi' && typeof isWompiSandbox !== 'undefined' && isWompiSandbox) { %>
+        <div style="margin-bottom:14px; padding:10px 12px; border-radius:8px; border:1px solid var(--color-border); background:rgba(255,255,255,0.05); font-size:0.88rem;">
+            <strong>Entorno de pruebas (Sandbox):</strong> las transacciones son simuladas y no generan cobros reales.
+        </div>
+        <% } %>
+        <% if (order.paymentMethod === 'wompi' && typeof wompiReturnTxId !== 'undefined' && wompiReturnTxId) { %>
+            <h2>Verificando tu pago en Wompi</h2>
+            <p style="margin:10px 0 18px; color:var(--color-text-muted);">
+                Recibimos el retorno de la transacción <strong><%= wompiReturnTxId %></strong>.
+                Si acabas de pagar, espera unos segundos y actualiza el estado antes de reintentar para evitar cobros duplicados.
+            </p>
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                <a href="/pedido/<%= order.code %>?id=<%= encodeURIComponent(wompiReturnTxId) %>" style="text-decoration:none;">
+                    <button type="button">Actualizar estado</button>
+                </a>
+                <% if (wompi) { %>
+                <a href="<%= wompi.checkoutUrl %>" style="text-decoration:none;">
+                    <button type="button" class="secondary">Reintentar pago en Wompi</button>
+                </a>
+                <% } %>
+            </div>
+        <% } else if (order.paymentMethod === 'wompi' && wompi) { %>
             <h2>✦ Completa tu pago seguro</h2>
             <p style="margin:10px 0 18px; color:var(--color-text-muted);">
                 Total a pagar: <strong style="color:var(--color-text);"><%= fmtCOP(order.total) %></strong>.

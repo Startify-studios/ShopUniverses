@@ -11,13 +11,27 @@ import { isWompiConfigured, buildWompiCheckoutConfig } from '../lib/payments/wom
 import { apiLimiter, stockLimiter, asyncHandler, apiErrorHandler } from '../lib/http.js';
 
 const router = Router();
-router.use(apiLimiter);
 
 // Respuestas de la API nunca se cachean en el navegador/CDN (stock vivo)
 router.use((req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();
 });
+
+/**
+ * POST /api/payments/wompi/webhook — confirmación criptográfica de pagos Wompi.
+ * Montado antes de apiLimiter para evitar falsos 429 desde servidores de Wompi
+ * en picos de ventas (la ruta está protegida por firma SHA-256).
+ */
+router.post(
+  '/payments/wompi/webhook',
+  asyncHandler(async (req, res) => {
+    const result = await handleWompiWebhook(req.body, req.get('x-event-checksum'));
+    res.json(result);
+  }),
+);
+
+router.use(apiLimiter);
 
 /** GET /api/catalog — productos públicos con stock vivo (sin costos). */
 router.get(
@@ -125,15 +139,6 @@ router.post(
         ? buildWompiCheckoutConfig(order)
         : null;
     res.status(201).json({ order, wompi });
-  }),
-);
-
-/** POST /api/payments/wompi/webhook — confirmación criptográfica de pagos Wompi */
-router.post(
-  '/payments/wompi/webhook',
-  asyncHandler(async (req, res) => {
-    const result = await handleWompiWebhook(req.body, req.get('x-event-checksum'));
-    res.json(result);
   }),
 );
 

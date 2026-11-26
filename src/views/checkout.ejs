@@ -68,7 +68,7 @@
                     <input type="radio" name="paymentMethod" value="wompi" <%= wompiEnabled ? 'checked' : '' %>>
                     <div>
                         <strong>Wompi Bancolombia (Nequi, PSE, Tarjetas)</strong><br>
-                        <small>Pago cifrado en pasarela certificada PCI-DSS Nivel 1.<%= wompiEnabled ? '' : ' (Modo preparación)' %></small>
+                        <small>Pago cifrado en pasarela certificada PCI-DSS Nivel 1.<%= !wompiEnabled ? ' (Modo preparación)' : (typeof isWompiSandbox !== 'undefined' && isWompiSandbox ? ' (Modo Pruebas Sandbox - sin cobro real)' : '') %></small>
                     </div>
                 </label>
 

@@ -16,7 +16,11 @@ import {
   normalizeCouponCode,
   computeCouponDiscount,
 } from './promotions.js';
-import { verifyWompiWebhookSignature } from './payments/wompi.js';
+import {
+  verifyWompiWebhookSignature,
+  fetchWompiTransaction,
+  getWompiEnv,
+} from './payments/wompi.js';
 import { generateOrderCode, nowIso } from './util.js';
 
 const ORDERS_COL = 'orders';
@@ -334,6 +338,7 @@ export async function createOrder({
       code,
       status: 'pendiente',
       paymentMethod,
+      paymentEnv: paymentMethod === 'wompi' ? getWompiEnv() : null,
       paymentRef: '',
       customer,
       consent,
@@ -443,6 +448,42 @@ export async function cancelOrder(rawCode, { reason = 'cancelado' } = {}) {
   return { ...order, ...patch };
 }
 
+/** Aplica de forma idempotente y segura una actualización de transacción Wompi sobre una orden. */
+async function applyWompiTransactionUpdate(order, tx) {
+  const status = String(tx?.status || '').trim().toUpperCase();
+  const txId = String(tx?.id || '').trim();
+  const amountInCents = Number(tx?.amount_in_cents);
+  const currency = tx?.currency !== undefined && tx?.currency !== null
+    ? String(tx.currency).trim().toUpperCase()
+    : 'COP';
+
+  if (currency !== 'COP') {
+    throw new InventoryError('La moneda de la transacción no coincide con la orden.', 400);
+  }
+
+  const expectedCents = Math.round(Number(order.total) * 100);
+  if (amountInCents !== expectedCents) {
+    throw new InventoryError('El monto de la transacción no coincide con la orden.', 400);
+  }
+
+  const finalizedPaid = ['pagado', 'enviado', 'entregado'].includes(order.status);
+
+  if (status === 'APPROVED') {
+    const updated = await markOrderPaid(order.code, { paymentRef: txId, method: 'wompi' });
+    return { ok: true, code: order.code, status, order: updated };
+  }
+
+  if (['DECLINED', 'VOIDED', 'ERROR'].includes(status)) {
+    if (finalizedPaid) {
+      return { ok: true, code: order.code, status, ignored: 'already_paid', order };
+    }
+    const updated = await cancelOrder(order.code, { reason: `wompi_${status.toLowerCase()}` });
+    return { ok: true, code: order.code, status, order: updated };
+  }
+
+  return { ok: true, code: order.code, status, order };
+}
+
 /** Procesa eventos Webhook firmados desde Wompi de forma idempotente. */
 export async function handleWompiWebhook(payload, headerChecksum) {
   verifyWompiWebhookSignature(payload, headerChecksum);
@@ -453,27 +494,44 @@ export async function handleWompiWebhook(payload, headerChecksum) {
 
   const tx = payload?.data?.transaction || {};
   const reference = String(tx.reference || '').trim().toUpperCase();
-  const status = String(tx.status || '').trim().toUpperCase();
-  const txId = String(tx.id || '');
-  const amountInCents = Number(tx.amount_in_cents);
 
   const order = await getOrderByCode(reference);
   if (!order) {
     return { ok: true, ignored: 'order_not_found' };
   }
 
-  const expectedCents = Math.round(Number(order.total) * 100);
-  if (amountInCents !== expectedCents) {
-    throw new InventoryError('El monto de la transacción no coincide con la orden.', 400);
+  const result = await applyWompiTransactionUpdate(order, tx);
+  return {
+    ok: result.ok,
+    code: result.code,
+    status: result.status,
+    ...(result.ignored ? { ignored: result.ignored } : {}),
+  };
+}
+
+/** Reconcilia una orden pendiente consultando la transacción directamente en la API de Wompi. */
+export async function reconcileWompiTransaction(rawCode, txId, { fetchImpl } = {}) {
+  const order = await getOrderByCode(rawCode);
+  if (!order) return null;
+  if (order.paymentMethod !== 'wompi' || order.status !== 'pendiente') {
+    return order;
   }
 
-  if (status === 'APPROVED') {
-    await markOrderPaid(order.code, { paymentRef: txId, method: 'wompi' });
-  } else if (['DECLINED', 'VOIDED', 'ERROR'].includes(status)) {
-    await cancelOrder(order.code, { reason: `wompi_${status.toLowerCase()}` });
+  const tx = await fetchWompiTransaction(txId, { fetchImpl });
+  if (!tx) return order;
+
+  const txRef = String(tx.reference || '').trim().toUpperCase();
+  if (txRef !== order.code) {
+    return order;
   }
 
-  return { ok: true, code: order.code, status };
+  try {
+    const result = await applyWompiTransactionUpdate(order, tx);
+    return result.order || order;
+  } catch (err) {
+    console.warn('[wompi] Reconciliación descartada:', err?.message || err);
+    return order;
+  }
 }
 
 /** Lista los pedidos ordenados del más reciente al más antiguo. */

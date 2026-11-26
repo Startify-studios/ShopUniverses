@@ -5,8 +5,12 @@ import { Router } from 'express';
 import { listCategoriesAsync } from '../lib/catalog.js';
 import { getMediaById } from '../lib/images.js';
 import { getStoreSettings } from '../lib/promotions.js';
-import { DEPARTMENTS, getOrderByCode } from '../lib/orders.js';
-import { isWompiConfigured, buildWompiCheckoutConfig } from '../lib/payments/wompi.js';
+import { DEPARTMENTS, getOrderByCode, reconcileWompiTransaction } from '../lib/orders.js';
+import {
+  isWompiConfigured,
+  buildWompiCheckoutConfig,
+  getWompiEnv,
+} from '../lib/payments/wompi.js';
 import { asyncHandler } from '../lib/http.js';
 
 const router = Router();
@@ -81,11 +85,13 @@ router.get('/reversion-de-pago', (req, res) => {
 });
 
 router.get('/checkout', (req, res) => {
+  const wompiEnabled = isWompiConfigured();
   res.render('checkout', {
     title: 'Finalizar compra',
     activeNav: 'carrito',
     departments: DEPARTMENTS,
-    wompiEnabled: isWompiConfigured(),
+    wompiEnabled,
+    isWompiSandbox: wompiEnabled && getWompiEnv() === 'sandbox',
     settings: res.locals.storeSettings,
   });
 });
@@ -93,11 +99,23 @@ router.get('/checkout', (req, res) => {
 router.get(
   '/pedido/:code',
   asyncHandler(async (req, res, next) => {
-    const order = await getOrderByCode(req.params.code);
+    let order = await getOrderByCode(req.params.code);
     if (!order) return next();
 
+    const wompiEnabled = isWompiConfigured();
+    const wompiReturnTxId = String(req.query?.id || '').trim();
+    if (
+      wompiReturnTxId &&
+      order.paymentMethod === 'wompi' &&
+      order.status === 'pendiente' &&
+      wompiEnabled
+    ) {
+      const reconciled = await reconcileWompiTransaction(order.code, wompiReturnTxId);
+      if (reconciled) order = reconciled;
+    }
+
     const wompi =
-      order.paymentMethod === 'wompi' && order.status === 'pendiente' && isWompiConfigured()
+      order.paymentMethod === 'wompi' && order.status === 'pendiente' && wompiEnabled
         ? buildWompiCheckoutConfig(order)
         : null;
 
@@ -106,6 +124,8 @@ router.get(
       activeNav: '',
       order,
       wompi,
+      wompiReturnTxId,
+      isWompiSandbox: wompiEnabled && getWompiEnv() === 'sandbox',
       settings: res.locals.storeSettings,
     });
   }),

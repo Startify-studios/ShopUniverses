@@ -5,8 +5,17 @@ import { config } from '../src/config.js';
 import { createFakeFirestore } from './helpers/fake-firestore.js';
 import { __setDbForTests } from '../src/lib/firebase.js';
 import { updateStoreSettings, saveCoupon } from '../src/lib/promotions.js';
-import { cancelOrder } from '../src/lib/orders.js';
-import { computeWompiIntegritySignature } from '../src/lib/payments/wompi.js';
+import {
+  cancelOrder,
+  createOrder,
+  handleWompiWebhook,
+  reconcileWompiTransaction,
+} from '../src/lib/orders.js';
+import {
+  computeWompiIntegritySignature,
+  isWompiConfigured,
+  buildWompiCheckoutConfig,
+} from '../src/lib/payments/wompi.js';
 import { app } from '../src/server.js';
 
 let server;
@@ -180,13 +189,17 @@ test('Flujo Wompi: firma de integridad SHA-256, webhook firmado, idempotencia y 
   const { order, wompi } = await createRes.json();
 
   assert.equal(order.status, 'pendiente');
+  assert.equal(order.paymentEnv, 'sandbox');
   assert.equal(stockOf('11-minas-bts'), 8);
   assert.ok(wompi && wompi.checkoutUrl.includes('https://checkout.wompi.co/p/'));
+  assert.ok(wompi.expirationTime && wompi.checkoutUrl.includes('expiration-time='));
+  assert.ok(wompi.checkoutUrl.includes('customer-data%3Aphone-number-prefix=%2B57'));
 
   const expectedIntegrity = computeWompiIntegritySignature({
     reference: order.code,
     amountInCents: order.total * 100,
     currency: 'COP',
+    expirationTime: wompi.expirationTime,
     integritySecret: config.wompi.integritySecret,
   });
   assert.equal(wompi.signatureIntegrity, expectedIntegrity);
@@ -269,4 +282,136 @@ test('Flujo Wompi: firma de integridad SHA-256, webhook firmado, idempotencia y 
   assert.equal(declHook.status, 200);
   assert.equal(orderOf(order2.code).status, 'cancelado');
   assert.equal(stockOf('atari-sapito'), 5);
+});
+
+test('Blindaje Wompi: coherencia de entorno, moneda, teléfono y protección contra cancelación tardía', async () => {
+  // 1. Validación estricta de llaves por entorno y presencia de eventsSecret
+  const snapshot = { ...config.wompi };
+  try {
+    config.wompi.env = 'sandbox';
+    config.wompi.publicKey = 'pub_prod_invalida_en_sandbox';
+    assert.equal(isWompiConfigured(), false);
+
+    config.wompi.env = 'production';
+    config.wompi.publicKey = 'pub_test_invalida_en_prod';
+    assert.equal(isWompiConfigured(), false);
+
+    config.wompi.env = 'sandbox';
+    config.wompi.publicKey = 'pub_test_valida';
+    config.wompi.eventsSecret = '';
+    assert.equal(isWompiConfigured(), false);
+  } finally {
+    Object.assign(config.wompi, snapshot);
+  }
+  assert.equal(isWompiConfigured(), true);
+
+  // 2. Normalización de teléfono colombiano (+57) y expiration-time en Web Checkout
+  const order = await createOrder({
+    paymentMethod: 'wompi',
+    customer: validCustomer({ phone: '+57 300 123 4567' }),
+    items: [{ tipo: 'producto', id: '11-minas-bts', qty: 1, origen: 'catalogo' }],
+  });
+  assert.equal(order.paymentEnv, 'sandbox');
+  const checkout = buildWompiCheckoutConfig(order);
+  const url = new URL(checkout.checkoutUrl);
+  assert.equal(url.searchParams.get('customer-data:phone-number'), '3001234567');
+  assert.equal(url.searchParams.get('customer-data:phone-number-prefix'), '+57');
+  assert.equal(url.searchParams.get('expiration-time'), checkout.expirationTime);
+
+  // 3. Webhook con entorno cruzado (prod en sandbox) -> 400
+  const wrongEnvPayload = {
+    event: 'transaction.updated',
+    environment: 'prod',
+    timestamp: 1731770200,
+    data: {
+      transaction: {
+        id: 'wompi-tx-env',
+        status: 'APPROVED',
+        reference: order.code,
+        currency: 'COP',
+        amount_in_cents: order.total * 100,
+      },
+    },
+    signature: {
+      properties: ['transaction.id', 'transaction.status', 'transaction.amount_in_cents'],
+    },
+  };
+  await assert.rejects(
+    () =>
+      handleWompiWebhook(
+        wrongEnvPayload,
+        signWompiEvent(wrongEnvPayload, config.wompi.eventsSecret),
+      ),
+    (err) => err.status === 400 && err.message.includes('Entorno'),
+  );
+
+  // 4. Webhook con moneda distinta a COP -> 400
+  const wrongCurrPayload = {
+    ...wrongEnvPayload,
+    environment: 'test',
+    data: {
+      transaction: { ...wrongEnvPayload.data.transaction, currency: 'USD' },
+    },
+  };
+  await assert.rejects(
+    () =>
+      handleWompiWebhook(
+        wrongCurrPayload,
+        signWompiEvent(wrongCurrPayload, config.wompi.eventsSecret),
+      ),
+    (err) => err.status === 400 && err.message.includes('moneda'),
+  );
+
+  // 5. Reconciliación activa al retorno (?id=txId) con fetch simulado
+  const fakeFetchApproved = async (reqUrl) => {
+    assert.ok(reqUrl.startsWith('https://sandbox.wompi.co/v1/transactions/tx-sandbox-123'));
+    return {
+      ok: true,
+      async json() {
+        return {
+          data: {
+            id: 'tx-sandbox-123',
+            status: 'APPROVED',
+            reference: order.code,
+            currency: 'COP',
+            amount_in_cents: order.total * 100,
+          },
+        };
+      },
+    };
+  };
+  const reconciled = await reconcileWompiTransaction(order.code, 'tx-sandbox-123', {
+    fetchImpl: fakeFetchApproved,
+  });
+  assert.equal(reconciled.status, 'pagado');
+  assert.equal(orderOf(order.code).status, 'pagado');
+  assert.equal(orderOf(order.code).paymentRef, 'tx-sandbox-123');
+
+  // 6. Webhook DECLINED tardío sobre orden ya pagada NO cancela ni devuelve stock
+  const stockBefore = stockOf('11-minas-bts');
+  const lateDeclined = {
+    event: 'transaction.updated',
+    environment: 'test',
+    timestamp: 1731770300,
+    data: {
+      transaction: {
+        id: 'wompi-tx-late-declined',
+        status: 'DECLINED',
+        reference: order.code,
+        currency: 'COP',
+        amount_in_cents: order.total * 100,
+      },
+    },
+    signature: {
+      properties: ['transaction.id', 'transaction.status', 'transaction.amount_in_cents'],
+    },
+  };
+  const lateRes = await handleWompiWebhook(
+    lateDeclined,
+    signWompiEvent(lateDeclined, config.wompi.eventsSecret),
+  );
+  assert.equal(lateRes.ok, true);
+  assert.equal(lateRes.ignored, 'already_paid');
+  assert.equal(orderOf(order.code).status, 'pagado');
+  assert.equal(stockOf('11-minas-bts'), stockBefore);
 });
