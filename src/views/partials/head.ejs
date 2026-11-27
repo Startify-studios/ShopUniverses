@@ -1,9 +1,61 @@
+<%
+  const pageTitle = title ? `${title} | ${store.name}` : store.name;
+  const pageDesc = locals.metaDescription || locals.seo?.description || `${store.name} - Tienda online en Colombia.`;
+  const canonicalUrl = locals.seo?.canonicalUrl || '';
+  const ogImage = locals.seo?.ogImage || '/assets/img/perfil/2.webp';
+  const shouldNoIndex = Boolean(locals.noindex || locals.seo?.noindex);
+  const storeLdJson = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'Store',
+    name: store.name,
+    url: locals.seo?.origin || canonicalUrl || undefined,
+    logo: ogImage,
+    email: store.email,
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: store.city,
+      addressCountry: 'CO',
+    },
+    currenciesAccepted: 'COP',
+    creator: {
+      '@type': 'Organization',
+      name: 'Startify',
+      url: 'https://startify.com.co',
+    },
+  });
+%>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= title ? `${title} | ${store.name}` : store.name %></title>
+    <title><%= pageTitle %></title>
+    <meta name="description" content="<%= pageDesc %>">
+    <% if (shouldNoIndex) { %>
+    <meta name="robots" content="noindex, nofollow">
+    <% } else { %>
+    <meta name="robots" content="index, follow">
+    <% } %>
+    <% if (canonicalUrl) { %>
+    <link rel="canonical" href="<%= canonicalUrl %>">
+    <% } %>
+
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="es_CO">
+    <meta property="og:site_name" content="<%= store.name %>">
+    <meta property="og:title" content="<%= pageTitle %>">
+    <meta property="og:description" content="<%= pageDesc %>">
+    <% if (canonicalUrl) { %>
+    <meta property="og:url" content="<%= canonicalUrl %>">
+    <% } %>
+    <meta property="og:image" content="<%= ogImage %>">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<%= pageTitle %>">
+    <meta name="twitter:description" content="<%= pageDesc %>">
+    <meta name="twitter:image" content="<%= ogImage %>">
+
+    <script type="application/ld+json"><%- storeLdJson %></script>
 
     <link rel="icon" href="/assets/img/favicon/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/favicon/favicon-32x32.png">

@@ -476,3 +476,27 @@
 .nav-toggle:checked + .nav-toggle-label span:nth-child(3) {
     transform: translateY(-8px) rotate(-45deg);
 }
+
+/* Atribución discreta de marca Startify en footer */
+.startify-credit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  opacity: 0.78;
+  transition: opacity 0.2s ease;
+}
+
+.startify-credit:hover {
+  opacity: 1;
+  text-decoration: none;
+}
+
+.startify-credit img {
+  height: 24px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}

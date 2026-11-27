@@ -9,11 +9,17 @@
             <small>
                 <strong><%= store.name %></strong><% if (store.nit) { %> · NIT: <%= store.nit %><% } %> · <%= store.city %>, Colombia · Contacto: <a href="mailto:<%= store.email %>" style="text-decoration:none;"><%= store.email %></a>
             </small>
-            <div class="flex-between" style="flex-wrap:wrap; gap:10px;">
+            <div class="flex-between" style="flex-wrap:wrap; gap:12px; align-items:center;">
                 <small>
                     © 2026 <%= store.name %> — Importaciones & Ventas Online
                 </small>
-                <button id="btn-admin-secret" type="button" aria-label="Acceso administrativo" title="Panel de Administración (Ctrl+Shift+A)" class="secondary" style="padding:4px 10px; font-size:0.78rem; opacity:0.55;">🪐 Admin</button>
+                <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+                    <a href="https://startify.com.co" target="_blank" rel="noopener noreferrer" aria-label="Desarrollado por Startify" class="startify-credit">
+                        <span>Desarrollado por</span>
+                        <img src="/assets/img/brand/startify-logo-dark.webp" alt="Startify" width="140" height="44" loading="lazy">
+                    </a>
+                    <button id="btn-admin-secret" type="button" aria-label="Acceso administrativo" title="Panel de Administración (Ctrl+Shift+A)" class="secondary" style="padding:4px 10px; font-size:0.78rem; opacity:0.55;">🪐 Admin</button>
+                </div>
             </div>
         </div>
     </footer>
