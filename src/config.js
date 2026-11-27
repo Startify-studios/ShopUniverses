@@ -64,6 +64,14 @@ export const config = {
     eventsSecret: env.WOMPI_EVENTS_SECRET || '',
   },
 
+  // Notificaciones por correo (EmailJS REST API desde servidor)
+  emailjs: {
+    serviceId: (env.EMAILJS_SERVICE_ID || '').trim(),
+    templateId: (env.EMAILJS_TEMPLATE_ID || '').trim(),
+    publicKey: (env.EMAILJS_PUBLIC_KEY || '').trim(),
+    privateKey: (env.EMAILJS_PRIVATE_KEY || '').trim(),
+  },
+
   // Información Legal del Comercio (Colombia)
   store: {
     name: env.STORE_NAME || 'ShopUniverses',

@@ -138,30 +138,45 @@ function initPqrsForm() {
             return;
         }
 
-        if (submitBtn) submitBtn.disabled = true;
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Radicando...";
+        }
         try {
+            const fd = new FormData(form);
+            const payload = {
+                type: String(fd.get("type") || ""),
+                orderCode: String(fd.get("orderCode") || ""),
+                name: String(fd.get("name") || ""),
+                email: String(fd.get("email") || ""),
+                phone: String(fd.get("phone") || ""),
+                document: String(fd.get("document") || ""),
+                reason: String(fd.get("reason") || ""),
+                details: String(fd.get("details") || ""),
+            };
+
             const res = await fetch("/api/pqrs", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    type: form.type.value,
-                    orderCode: form.orderCode.value,
-                    name: form.name.value,
-                    email: form.email.value,
-                    phone: form.phone.value,
-                    document: form.document.value,
-                    reason: form.reason.value,
-                    details: form.details.value,
-                }),
+                body: JSON.stringify(payload),
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data?.error || "Error al radicar solicitud");
+
+            let data = null;
+            try {
+                data = await res.json();
+            } catch {
+                data = null;
+            }
+            if (!res.ok) throw new Error(data?.error || `Error al radicar solicitud (${res.status})`);
 
             if (resultEl) {
                 resultEl.style.display = "block";
                 resultEl.style.background = "rgba(61,214,208,0.15)";
                 resultEl.style.border = "1px solid var(--color-accent)";
-                resultEl.textContent = `✔ Solicitud radicada con éxito. Tu número de radicado es: ${data.claim.radicado}`;
+                const mailNote = data?.emailSent
+                    ? " Se envió confirmación automática a tu correo electrónico."
+                    : "";
+                resultEl.textContent = `Solicitud radicada con éxito. Número de radicado: ${data.claim.radicado}.${mailNote}`;
             }
             form.reset();
         } catch (err) {
@@ -169,10 +184,13 @@ function initPqrsForm() {
                 resultEl.style.display = "block";
                 resultEl.style.background = "rgba(255,76,76,0.18)";
                 resultEl.style.border = "1px solid #ff4c4c";
-                resultEl.textContent = "✖ " + err.message;
+                resultEl.textContent = err.message || "No se pudo radicar la solicitud.";
             }
         } finally {
-            if (submitBtn) submitBtn.disabled = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Radicar Solicitud";
+            }
         }
     });
 }

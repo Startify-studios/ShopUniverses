@@ -1,0 +1,74 @@
+<%- include('head') %>
+<div class="page-head">
+  <h1>Solicitudes PQRS, Retracto y Reversión</h1>
+  <div class="row">
+    <a class="btn sm <%= !activeStatus ? '' : 'secondary' %>" href="/admin/pqrs">Todas</a>
+    <a class="btn sm <%= activeStatus === 'radicado' ? '' : 'secondary' %>" href="/admin/pqrs?estado=radicado">Radicadas</a>
+    <a class="btn sm <%= activeStatus === 'en_proceso' ? '' : 'secondary' %>" href="/admin/pqrs?estado=en_proceso">En proceso</a>
+    <a class="btn sm <%= activeStatus === 'resuelto' ? '' : 'secondary' %>" href="/admin/pqrs?estado=resuelto">Resueltas</a>
+    <a class="btn sm <%= activeStatus === 'cerrado' ? '' : 'secondary' %>" href="/admin/pqrs?estado=cerrado">Cerradas</a>
+  </div>
+</div>
+
+<% if (ok === 'estado_actualizado') { %>
+<div class="alert-ok">Estado de la solicitud actualizado correctamente.</div>
+<% } %>
+
+<div class="card">
+  <% if (!claims.length) { %>
+    <p class="muted">No hay solicitudes PQRS con este filtro.</p>
+  <% } else { %>
+    <table>
+      <tr>
+        <th>Radicado</th>
+        <th>Cliente</th>
+        <th>Tipo / Pedido</th>
+        <th>Motivo y detalle</th>
+        <th>Gestión</th>
+      </tr>
+      <% claims.forEach(function (c) { %>
+      <tr>
+        <td>
+          <strong><%= c.radicado %></strong><br>
+          <small class="muted"><%= fmtDate(c.createdAt) %></small><br>
+          <span class="badge <%= c.status %>"><%= c.status %></span>
+        </td>
+        <td>
+          <strong><%= c.name %></strong><br>
+          <small class="muted"><%= c.email %></small><br>
+          <small class="muted">Tel: <%= c.phone %></small>
+          <% if (c.document) { %><br><small class="muted">Doc: <%= c.document %></small><% } %>
+        </td>
+        <td>
+          <span style="text-transform:uppercase;"><%= c.type %></span>
+          <% if (c.orderCode) { %>
+            <br><a href="/admin/pedidos/<%= encodeURIComponent(c.orderCode) %>"><%= c.orderCode %></a>
+          <% } %>
+        </td>
+        <td style="max-width:300px;">
+          <strong><%= c.reason %></strong>
+          <% if (c.details) { %>
+            <p class="muted" style="margin:4px 0 0; font-size:0.85rem; white-space:pre-line;"><%= c.details %></p>
+          <% } %>
+          <% if (c.resolutionNote) { %>
+            <p style="margin:6px 0 0; font-size:0.84rem; color:var(--accent);">Nota interna: <%= c.resolutionNote %></p>
+          <% } %>
+        </td>
+        <td style="min-width:210px;">
+          <form method="post" action="/admin/pqrs/<%= encodeURIComponent(c.radicado) %>/estado" style="display:flex; flex-direction:column; gap:6px;">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <select name="status" aria-label="Estado de <%= c.radicado %>">
+              <% statuses.forEach(function (st) { %>
+                <option value="<%= st %>" <%= c.status === st ? 'selected' : '' %>><%= st %></option>
+              <% }); %>
+            </select>
+            <input type="text" name="resolutionNote" maxlength="600" value="<%= c.resolutionNote || '' %>" placeholder="Nota de gestión (opcional)">
+            <button type="submit" class="sm">Actualizar</button>
+          </form>
+        </td>
+      </tr>
+      <% }); %>
+    </table>
+  <% } %>
+</div>
+<%- include('foot') %>

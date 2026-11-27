@@ -29,6 +29,9 @@ import {
   markOrderShipped,
   markOrderDelivered,
   cancelOrder,
+  listPqrsClaims,
+  updatePqrsStatus,
+  PQRS_STATUSES,
 } from '../lib/orders.js';
 import {
   loadAdmin,
@@ -235,6 +238,33 @@ router.post(
       reason: req.body?.reason || 'cancelado_por_admin',
     });
     res.redirect(`/admin/pedidos/${encodeURIComponent(order.code)}`);
+  }),
+);
+
+// ---------------- PQRS, Retracto y Reversión ----------------
+router.get(
+  '/pqrs',
+  asyncHandler(async (req, res) => {
+    const status = String(req.query.estado || '').trim().toLowerCase();
+    const claims = await listPqrsClaims({ status });
+    res.render('admin/pqrs', {
+      title: 'Solicitudes PQRS',
+      claims,
+      activeStatus: status,
+      statuses: PQRS_STATUSES,
+      ok: String(req.query.ok || ''),
+    });
+  }),
+);
+
+router.post(
+  '/pqrs/:radicado/estado',
+  asyncHandler(async (req, res) => {
+    await updatePqrsStatus(req.params.radicado, {
+      status: req.body?.status,
+      resolutionNote: req.body?.resolutionNote || '',
+    });
+    res.redirect('/admin/pqrs?ok=estado_actualizado');
   }),
 );
 
