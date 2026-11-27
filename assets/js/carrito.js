@@ -268,11 +268,9 @@ function enviarPedidoWhatsApp(numero) {
   const params = new URLSearchParams({ text: mensaje });
   const url = `https://wa.me/${numero}?${params.toString()}`;
 
-  window.open(url, "_blank");
-
-  setTimeout(() => {
-    limpiarCarrito();
-  }, 500);
+  // Mantenemos el carrito y los tokens de reserva intactos para que, si el usuario
+  // cierra WhatsApp sin completar y pulsa "Vaciar Carrito", el stock se libere en Firestore.
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 export {

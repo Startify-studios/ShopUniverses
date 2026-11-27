@@ -54,6 +54,42 @@ if (document.readyState === "loading") {
 }
 
 /* ===============================
+NOTIFICACIÓN TOAST NO INTRUSIVA
+=============================== */
+let toastTimer = null;
+function mostrarToastCatalogo(texto, esError = false) {
+    let toast = document.getElementById("su-catalog-toast");
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "su-catalog-toast";
+        toast.setAttribute("role", "status");
+        toast.setAttribute("aria-live", "polite");
+        toast.style.cssText =
+            "position:fixed; top:18px; right:18px; z-index:3500; padding:12px 18px; border-radius:10px;" +
+            "background:rgba(17,17,34,0.96); backdrop-filter:blur(10px); color:var(--color-text);" +
+            "box-shadow:0 8px 24px rgba(0,0,0,0.45); font-size:0.92rem; max-width:340px;" +
+            "transition:opacity 0.25s ease, transform 0.25s ease; opacity:0; transform:translateY(-8px);";
+        document.body.appendChild(toast);
+    }
+    toast.style.border = esError ? "1px solid #ff4c4c" : "1px solid var(--color-accent)";
+    toast.textContent = texto;
+    toast.style.display = "block";
+    requestAnimationFrame(() => {
+        toast.style.opacity = "1";
+        toast.style.transform = "translateY(0)";
+    });
+
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(-8px)";
+        setTimeout(() => {
+            if (toast.style.opacity === "0") toast.style.display = "none";
+        }, 260);
+    }, 2600);
+}
+
+/* ===============================
 UTILIDAD DE PRECIO
 =============================== */
 function formatearPrecio(valor) {
@@ -176,11 +212,14 @@ function renderCatalogo() {
             btnAgregar.disabled = true;
             btnAgregar.textContent = "Agregando...";
 
-            for (let i = 0; i < cantidad; i++) {
-                await agregarProductoCatalogo(producto);
+            try {
+                for (let i = 0; i < cantidad; i++) {
+                    await agregarProductoCatalogo(producto);
+                }
+                mostrarToastCatalogo(`Agregaste ${cantidad} unidad(es) de ${producto.nombre} al carrito.`);
+            } catch (err) {
+                mostrarToastCatalogo(err?.message || "No se pudo agregar al carrito.", true);
             }
-
-            alert(`Agregaste ${cantidad} unidad(es) al carrito`);
             renderCatalogo();
         };
 
