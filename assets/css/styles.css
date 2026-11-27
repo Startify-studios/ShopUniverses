@@ -478,14 +478,23 @@
 }
 
 /* Atribución discreta de marca Startify en footer */
+.startify-footer-bar {
+  display: flex;
+  justify-content: center;
+  padding-top: 14px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
 .startify-credit {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   text-decoration: none;
   color: var(--color-text-muted);
-  font-size: 0.78rem;
-  opacity: 0.78;
+  font-size: 0.82rem;
+  letter-spacing: 0.3px;
+  opacity: 0.82;
   transition: opacity 0.2s ease;
 }
 
@@ -495,7 +504,7 @@
 }
 
 .startify-credit img {
-  height: 24px;
+  height: 30px;
   width: auto;
   display: block;
   object-fit: contain;
