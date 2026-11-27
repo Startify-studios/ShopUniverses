@@ -7,6 +7,7 @@ import { getStockMap, reserveStock, releaseReservation, extendReservations, swee
 import { rollSpinSession, acceptSpinSession } from '../lib/spin.js';
 import { getStoreSettings, validateCoupon } from '../lib/promotions.js';
 import { createOrder, handleWompiWebhook, createPqrsClaim } from '../lib/orders.js';
+import { sendPqrsAutoReply } from '../lib/email.js';
 import { isWompiConfigured, buildWompiCheckoutConfig } from '../lib/payments/wompi.js';
 import { apiLimiter, stockLimiter, asyncHandler, apiErrorHandler } from '../lib/http.js';
 
@@ -148,7 +149,8 @@ router.post(
   stockLimiter,
   asyncHandler(async (req, res) => {
     const claim = await createPqrsClaim(req.body || {});
-    res.status(201).json({ claim });
+    const emailResult = await sendPqrsAutoReply(claim);
+    res.status(201).json({ claim, emailSent: Boolean(emailResult?.sent) });
   }),
 );
 

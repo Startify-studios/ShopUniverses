@@ -640,3 +640,49 @@ export async function createPqrsClaim({
   await getDb().collection('pqrs').doc(radicado).set(claim);
   return claim;
 }
+
+export const PQRS_STATUSES = ['radicado', 'en_proceso', 'resuelto', 'cerrado'];
+
+/** Lista las solicitudes PQRS ordenadas de la más reciente a la más antigua. */
+export async function listPqrsClaims({ status = '' } = {}) {
+  const filter = String(status || '').trim().toLowerCase();
+  const snap = await getDb().collection('pqrs').get();
+  const items = [];
+  snap.forEach((doc) => {
+    const data = doc.data();
+    if (!filter || data.status === filter) items.push(data);
+  });
+  return items.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+}
+
+/** Obtiene una solicitud PQRS por su número de radicado. */
+export async function getPqrsByRadicado(rawRadicado) {
+  const radicado = String(rawRadicado || '').trim().toUpperCase();
+  if (!radicado) return null;
+  const snap = await getDb().collection('pqrs').doc(radicado).get();
+  return snap.exists ? snap.data() : null;
+}
+
+/** Actualiza el estado y nota de resolución de una solicitud PQRS desde el panel admin. */
+export async function updatePqrsStatus(rawRadicado, { status, resolutionNote = '' } = {}) {
+  const radicado = String(rawRadicado || '').trim().toUpperCase();
+  const nextStatus = String(status || '').trim().toLowerCase();
+  if (!PQRS_STATUSES.includes(nextStatus)) {
+    throw new InventoryError('Estado de PQRS inválido.', 400);
+  }
+
+  const ref = getDb().collection('pqrs').doc(radicado);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw new InventoryError('Solicitud PQRS no encontrada.', 404);
+  }
+
+  const current = snap.data();
+  const patch = {
+    status: nextStatus,
+    resolutionNote: String(resolutionNote || '').trim().slice(0, 600),
+    updatedAt: nowIso(),
+  };
+  await ref.update(patch);
+  return { ...current, ...patch };
+}
