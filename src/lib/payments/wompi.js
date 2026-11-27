@@ -77,7 +77,7 @@ export function computeWompiIntegritySignature({
 }
 
 /** Construye los parámetros y URL segura de redirección a Wompi Web Checkout. */
-export function buildWompiCheckoutConfig(order) {
+export function buildWompiCheckoutConfig(order, { baseUrl = '' } = {}) {
   const amountInCents = Math.round(Number(order.total) * 100);
   const currency = 'COP';
   const reference = order.code;
@@ -91,7 +91,8 @@ export function buildWompiCheckoutConfig(order) {
     currency,
     expirationTime,
   });
-  const redirectUrl = `${config.siteUrl}/pedido/${encodeURIComponent(order.code)}`;
+  const origin = String(baseUrl || config.siteUrl).replace(/\/$/, '');
+  const redirectUrl = `${origin}/pedido/${encodeURIComponent(order.code)}`;
 
   const params = new URLSearchParams({
     'public-key': config.wompi.publicKey,

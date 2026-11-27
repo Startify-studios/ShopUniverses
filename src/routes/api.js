@@ -130,6 +130,13 @@ router.post(
   }),
 );
 
+function resolveRequestBaseUrl(req) {
+  const host = String(req.get('x-forwarded-host') || req.get('host') || '').split(',')[0].trim();
+  if (!host) return '';
+  const proto = String(req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim();
+  return `${proto}://${host}`;
+}
+
 /** POST /api/orders — crea un pedido transaccional en Firestore */
 router.post(
   '/orders',
@@ -145,7 +152,7 @@ router.post(
     });
     const wompi =
       order.paymentMethod === 'wompi' && isWompiConfigured()
-        ? buildWompiCheckoutConfig(order)
+        ? buildWompiCheckoutConfig(order, { baseUrl: resolveRequestBaseUrl(req) })
         : null;
     res.status(201).json({ order, wompi });
   }),

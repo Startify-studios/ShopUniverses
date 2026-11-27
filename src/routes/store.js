@@ -114,9 +114,13 @@ router.get(
       if (reconciled) order = reconciled;
     }
 
+    const host = String(req.get('x-forwarded-host') || req.get('host') || '').split(',')[0].trim();
+    const proto = String(req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim();
+    const baseUrl = host ? `${proto}://${host}` : '';
+
     const wompi =
       order.paymentMethod === 'wompi' && order.status === 'pendiente' && wompiEnabled
-        ? buildWompiCheckoutConfig(order)
+        ? buildWompiCheckoutConfig(order, { baseUrl })
         : null;
 
     res.render('order', {
