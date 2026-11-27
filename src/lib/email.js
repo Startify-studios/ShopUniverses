@@ -76,6 +76,7 @@ export async function sendPqrsAutoReply(claim, { fetchImpl } = {}) {
     reply_to: config.store.email,
     store_name: config.store.name,
     store_email: config.store.email,
+    subject: `${claim.radicado} - ${typeLabel}`,
     radicado: claim.radicado,
     type: typeLabel,
     order_code: claim.orderCode || 'No especificado',

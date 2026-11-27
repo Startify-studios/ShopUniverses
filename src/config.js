@@ -32,7 +32,10 @@ const root = resolveRoot();
 const env = process.env;
 const port = Number(env.PORT || 3000);
 const isNetlifyRuntime = Boolean(env.NETLIFY) && env.NETLIFY_DEV !== 'true';
-const inferredSiteUrl = env.SITE_URL || env.URL || env.DEPLOY_PRIME_URL || `http://localhost:${port}`;
+const isNonProdNetlify = isNetlifyRuntime && Boolean(env.CONTEXT) && env.CONTEXT !== 'production';
+const inferredSiteUrl = isNonProdNetlify
+  ? env.DEPLOY_PRIME_URL || env.SITE_URL || env.URL || `http://localhost:${port}`
+  : env.SITE_URL || env.DEPLOY_PRIME_URL || env.URL || `http://localhost:${port}`;
 
 export const config = {
   root,
