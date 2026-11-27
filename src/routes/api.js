@@ -20,6 +20,14 @@ router.use((req, res, next) => {
 });
 
 /**
+ * GET /api/payments/wompi/webhook — verificación de disponibilidad que realiza Wompi
+ * al registrar o validar la URL de Eventos en su panel (no expone secretos ni estado).
+ */
+router.get('/payments/wompi/webhook', (req, res) => {
+  res.status(200).json({ ok: true, service: 'wompi-webhook' });
+});
+
+/**
  * POST /api/payments/wompi/webhook — confirmación criptográfica de pagos Wompi.
  * Montado antes de apiLimiter para evitar falsos 429 desde servidores de Wompi
  * en picos de ventas (la ruta está protegida por firma SHA-256).

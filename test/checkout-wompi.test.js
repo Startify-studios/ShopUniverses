@@ -210,6 +210,12 @@ test('Flujo Wompi: firma de integridad SHA-256, webhook firmado, idempotencia y 
   const pageHtml = await pageRes.text();
   assert.ok(pageHtml.includes(order.code));
 
+  // Verificación GET de disponibilidad que realiza Wompi al guardar la URL de Eventos
+  const pingHook = await fetch(`${base}/api/payments/wompi/webhook`);
+  assert.equal(pingHook.status, 200);
+  const pingBody = await pingHook.json();
+  assert.equal(pingBody.ok, true);
+
   // 2. Webhook con firma inválida -> 401
   const approvedPayload = {
     event: 'transaction.updated',
