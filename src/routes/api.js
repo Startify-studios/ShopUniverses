@@ -146,6 +146,7 @@ router.post(
     const order = await createOrder({
       customer: req.body?.customer,
       paymentMethod: req.body?.paymentMethod || 'wompi',
+      deliveryMethod: req.body?.deliveryMethod || 'envio',
       couponCode: req.body?.couponCode || null,
       items: req.body?.items || [],
       clientIp: req.ip,

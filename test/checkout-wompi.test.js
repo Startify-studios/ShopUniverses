@@ -421,3 +421,31 @@ test('Blindaje Wompi: coherencia de entorno, moneda, teléfono y protección con
   assert.equal(orderOf(order.code).status, 'pagado');
   assert.equal(stockOf('11-minas-bts'), stockBefore);
 });
+
+test('Modalidad entrega en persona: envío $0 sin requerir dirección y firma Wompi exacta', async () => {
+  const res = await post('/api/orders', {
+    paymentMethod: 'wompi',
+    deliveryMethod: 'entrega_personal',
+    customer: {
+      name: 'Camila Torres',
+      email: 'camila@ejemplo.com',
+      phone: '3001234567',
+      acceptTerms: true,
+    },
+    items: [{ tipo: 'producto', id: '11-minas-bts', qty: 1, origen: 'catalogo' }],
+  });
+  assert.equal(res.status, 201);
+  const { order, wompi } = await res.json();
+  assert.equal(order.deliveryMethod, 'entrega_personal');
+  assert.equal(order.shipping, 0);
+  assert.equal(order.total, 3000);
+  assert.equal(wompi.amountInCents, 300000);
+
+  const badDelivery = await post('/api/orders', {
+    paymentMethod: 'wompi',
+    deliveryMethod: 'dron',
+    customer: validCustomer(),
+    items: [{ tipo: 'producto', id: '11-minas-bts', qty: 1, origen: 'catalogo' }],
+  });
+  assert.equal(badDelivery.status, 400);
+});

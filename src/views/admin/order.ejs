@@ -13,7 +13,10 @@
     <p><strong><%= order.customer?.name %></strong></p>
     <p><%= order.customer?.email %> · <%= order.customer?.phone %></p>
     <% if (order.customer?.document) { %><p class="muted">Documento: <%= order.customer.document %></p><% } %>
+    <p>Modalidad: <strong><%= order.deliveryMethod === 'entrega_personal' ? 'Entrega en persona (sin envío)' : 'Envío nacional' %></strong></p>
+    <% if (order.deliveryMethod !== 'entrega_personal') { %>
     <p><%= order.customer?.address %><br><%= order.customer?.city %>, <%= order.customer?.department %></p>
+    <% } %>
     <% if (order.customer?.notes) { %><p class="muted">Nota: <%= order.customer.notes %></p><% } %>
   </div>
 

@@ -11,7 +11,25 @@
     <div class="layout-sidebar">
 
         <form id="checkout-form" class="card" style="display:flex; flex-direction:column; gap:16px;" novalidate>
-            <h3>1. Datos de envío</h3>
+            <h3>1. Datos de contacto y entrega</h3>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; padding:10px; border:1px solid var(--color-border); border-radius:8px;">
+                    <input type="radio" name="deliveryMethod" value="envio" checked>
+                    <div>
+                        <strong>Envío a domicilio / nacional</strong><br>
+                        <small>Despacho a cualquier ciudad o municipio de Colombia.</small>
+                    </div>
+                </label>
+
+                <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; padding:10px; border:1px solid var(--color-border); border-radius:8px;">
+                    <input type="radio" name="deliveryMethod" value="entrega_personal">
+                    <div>
+                        <strong>Entrega en persona (sin costo de envío)</strong><br>
+                        <small>Acordamos la entrega directamente contigo. Costo de envío: $ 0.</small>
+                    </div>
+                </label>
+            </div>
 
             <div class="form-grid-2">
                 <label style="display:flex; flex-direction:column; gap:6px;">
@@ -33,27 +51,31 @@
                     <span>Cédula / NIT (opcional)</span>
                     <input id="document" name="document" placeholder="Documento de identidad" style="padding:10px; border-radius:8px; border:1px solid var(--color-border); background:rgba(255,255,255,0.06); color:var(--color-text);">
                 </label>
-
-                <label style="display:flex; flex-direction:column; gap:6px;">
-                    <span>Departamento *</span>
-                    <select id="department" name="department" required style="padding:10px; border-radius:8px; border:1px solid var(--color-border); background:#111122; color:var(--color-text);">
-                        <option value="">Selecciona...</option>
-                        <% departments.forEach(function (d) { %>
-                        <option value="<%= d %>"><%= d %></option>
-                        <% }); %>
-                    </select>
-                </label>
-
-                <label style="display:flex; flex-direction:column; gap:6px;">
-                    <span>Ciudad / Municipio *</span>
-                    <input id="city" name="city" required autocomplete="address-level2" placeholder="Ej. Bogotá" style="padding:10px; border-radius:8px; border:1px solid var(--color-border); background:rgba(255,255,255,0.06); color:var(--color-text);">
-                </label>
             </div>
 
-            <label style="display:flex; flex-direction:column; gap:6px;">
-                <span>Dirección completa *</span>
-                <input id="address" name="address" required autocomplete="street-address" placeholder="Calle, carrera, número, apto y barrio" style="padding:10px; border-radius:8px; border:1px solid var(--color-border); background:rgba(255,255,255,0.06); color:var(--color-text);">
-            </label>
+            <div id="shipping-address-fields" style="display:flex; flex-direction:column; gap:16px;">
+                <div class="form-grid-2">
+                    <label style="display:flex; flex-direction:column; gap:6px;">
+                        <span>Departamento *</span>
+                        <select id="department" name="department" required style="padding:10px; border-radius:8px; border:1px solid var(--color-border); background:#111122; color:var(--color-text);">
+                            <option value="">Selecciona...</option>
+                            <% departments.forEach(function (d) { %>
+                            <option value="<%= d %>"><%= d %></option>
+                            <% }); %>
+                        </select>
+                    </label>
+
+                    <label style="display:flex; flex-direction:column; gap:6px;">
+                        <span>Ciudad / Municipio *</span>
+                        <input id="city" name="city" required autocomplete="address-level2" placeholder="Ej. Bogotá" style="padding:10px; border-radius:8px; border:1px solid var(--color-border); background:rgba(255,255,255,0.06); color:var(--color-text);">
+                    </label>
+                </div>
+
+                <label style="display:flex; flex-direction:column; gap:6px;">
+                    <span>Dirección completa *</span>
+                    <input id="address" name="address" required autocomplete="street-address" placeholder="Calle, carrera, número, apto y barrio" style="padding:10px; border-radius:8px; border:1px solid var(--color-border); background:rgba(255,255,255,0.06); color:var(--color-text);">
+                </label>
+            </div>
 
             <label style="display:flex; flex-direction:column; gap:6px;">
                 <span>Notas del pedido (opcional)</span>

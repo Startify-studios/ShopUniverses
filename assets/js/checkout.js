@@ -49,6 +49,20 @@ function resolveUnitPrice(item, inv) {
   return prod ? Number(prod.precio_referencia) || 0 : Number(item.precio) || 0;
 }
 
+function getDeliveryMethod() {
+  return document.querySelector('input[name="deliveryMethod"]:checked')?.value || "envio";
+}
+
+function syncDeliveryFields() {
+  const isPickup = getDeliveryMethod() === "entrega_personal";
+  const box = document.getElementById("shipping-address-fields");
+  if (box) box.style.display = isPickup ? "none" : "flex";
+  for (const id of ["department", "city", "address"]) {
+    const el = document.getElementById(id);
+    if (el) el.required = !isPickup;
+  }
+}
+
 function renderSummary() {
   const items = getItemsCarrito();
   const inv = getInventario();
@@ -100,18 +114,25 @@ function renderSummary() {
   }
 
   const net = Math.max(0, currentSubtotal - discount);
+  const deliveryMethod = getDeliveryMethod();
+  const isPickup = deliveryMethod === "entrega_personal";
   const shipCfg = inv?.shipping || { flat: 12000, freeMin: 100000 };
   const freeMin = Number(shipCfg.freeMin) || 0;
-  const shipping = net <= 0 ? 0 : freeMin > 0 && net >= freeMin ? 0 : Number(shipCfg.flat) || 0;
+  const shipping =
+    isPickup || net <= 0 ? 0 : freeMin > 0 && net >= freeMin ? 0 : Number(shipCfg.flat) || 0;
   const total = net + shipping;
 
   document.getElementById("sum-subtotal").textContent = fmtCOP(currentSubtotal);
-  document.getElementById("sum-shipping").textContent = shipping === 0 && net > 0 ? "Gratis" : fmtCOP(shipping);
+  document.getElementById("sum-shipping").textContent = isPickup
+    ? "Entrega en persona ($ 0)"
+    : shipping === 0 && net > 0
+      ? "Gratis"
+      : fmtCOP(shipping);
   document.getElementById("sum-total").textContent = fmtCOP(total);
 
   const freeEl = document.getElementById("sum-free");
   if (freeEl) {
-    if (freeMin > 0 && net > 0 && net < freeMin) {
+    if (!isPickup && freeMin > 0 && net > 0 && net < freeMin) {
       freeEl.style.display = "block";
       freeEl.textContent = `Te faltan ${fmtCOP(freeMin - net)} para envío gratis.`;
     } else {
@@ -168,6 +189,7 @@ async function handleSubmitOrder(e) {
   }
 
   const paymentMethod = form.querySelector('input[name="paymentMethod"]:checked')?.value || "manual";
+  const deliveryMethod = getDeliveryMethod();
   const payBtn = document.getElementById("pay-btn");
   if (payBtn) {
     payBtn.disabled = true;
@@ -177,6 +199,7 @@ async function handleSubmitOrder(e) {
   try {
     const payload = {
       paymentMethod,
+      deliveryMethod,
       couponCode: appliedCoupon?.code || null,
       items,
       customer: {
@@ -215,7 +238,15 @@ async function initCheckout() {
 
   await cargarInventario();
   inicializarCarrito();
+  syncDeliveryFields();
   renderSummary();
+
+  document.querySelectorAll('input[name="deliveryMethod"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      syncDeliveryFields();
+      renderSummary();
+    });
+  });
 
   document.getElementById("btn-apply-coupon")?.addEventListener("click", handleApplyCoupon);
   document.getElementById("checkout-form")?.addEventListener("submit", handleSubmitOrder);

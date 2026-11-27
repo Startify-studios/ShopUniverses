@@ -73,11 +73,12 @@ function safeEqual(a, b) {
 }
 
 /** Valida los datos del comprador y el consentimiento legal colombiano (Ley 1581 / Ley 2300). */
-export function validateCustomer(raw) {
+export function validateCustomer(raw, { deliveryMethod = 'envio' } = {}) {
   if (!raw || typeof raw !== 'object') {
     throw new InventoryError('Datos del cliente inválidos.', 400);
   }
 
+  const isPickup = deliveryMethod === 'entrega_personal';
   const name = String(raw.name || '').trim();
   const email = String(raw.email || '').trim().toLowerCase();
   const phone = String(raw.phone || '').trim();
@@ -93,9 +94,11 @@ export function validateCustomer(raw) {
     throw new InventoryError('Ingresa un correo electrónico válido.', 400);
   }
   if (phoneDigits.length < 7) throw new InventoryError('Ingresa un número celular válido.', 400);
-  if (!department) throw new InventoryError('Selecciona un departamento.', 400);
-  if (city.length < 2) throw new InventoryError('Ingresa tu ciudad o municipio.', 400);
-  if (address.length < 5) throw new InventoryError('Ingresa la dirección completa de entrega.', 400);
+  if (!isPickup) {
+    if (!department) throw new InventoryError('Selecciona un departamento.', 400);
+    if (city.length < 2) throw new InventoryError('Ingresa tu ciudad o municipio.', 400);
+    if (address.length < 5) throw new InventoryError('Ingresa la dirección completa de entrega.', 400);
+  }
 
   // Regla SIC / Ley 1581 de 2012: consentimiento obligatorio explícito
   if (raw.acceptTerms !== true) {
@@ -106,7 +109,16 @@ export function validateCustomer(raw) {
   }
 
   return {
-    customer: { name, email, phone, document, department, city, address, notes },
+    customer: {
+      name,
+      email,
+      phone,
+      document,
+      department: isPickup ? department || '' : department,
+      city: isPickup ? city || '' : city,
+      address: isPickup ? address || 'Entrega en persona' : address,
+      notes,
+    },
     consent: {
       acceptTerms: true,
       acceptMarketing: Boolean(raw.acceptMarketing),
@@ -124,12 +136,16 @@ export function validateCustomer(raw) {
 export async function createOrder({
   customer: rawCustomer,
   paymentMethod = 'wompi',
+  deliveryMethod = 'envio',
   couponCode = null,
   items: rawCartItems = [],
   clientIp = '',
 }) {
   if (!['wompi', 'manual', 'whatsapp'].includes(paymentMethod)) {
     throw new InventoryError('Método de pago inválido.', 400);
+  }
+  if (!['envio', 'entrega_personal'].includes(deliveryMethod)) {
+    throw new InventoryError('Modalidad de entrega inválida.', 400);
   }
   if (!Array.isArray(rawCartItems) || rawCartItems.length === 0) {
     throw new InventoryError('El carrito está vacío.', 400);
@@ -138,7 +154,7 @@ export async function createOrder({
     throw new InventoryError('Demasiados ítems en el pedido.', 400);
   }
 
-  const { customer, consent } = validateCustomer(rawCustomer);
+  const { customer, consent } = validateCustomer(rawCustomer, { deliveryMethod });
   const { config: catalogCfg, byId: productMap } = await getCatalog({ includeInactive: true });
   const settings = await getStoreSettings();
 
@@ -301,7 +317,11 @@ export async function createOrder({
     const freeMin = Number(settings.freeShippingMin) || 0;
     const flatShip = Number(settings.shippingFlat) || 0;
     const shipping =
-      netSubtotal <= 0 ? 0 : freeMin > 0 && netSubtotal >= freeMin ? 0 : flatShip;
+      deliveryMethod === 'entrega_personal' || netSubtotal <= 0
+        ? 0
+        : freeMin > 0 && netSubtotal >= freeMin
+          ? 0
+          : flatShip;
     const total = netSubtotal + shipping;
 
     // 6. Todas las escrituras al final de la transacción
@@ -338,6 +358,7 @@ export async function createOrder({
       code,
       status: 'pendiente',
       paymentMethod,
+      deliveryMethod,
       paymentEnv: paymentMethod === 'wompi' ? getWompiEnv() : null,
       paymentRef: '',
       customer,

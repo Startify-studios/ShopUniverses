@@ -125,7 +125,7 @@
                 <% } %>
                 <div class="flex-between">
                     <span style="color:var(--color-text-muted);">Envío</span>
-                    <span><%= order.shipping > 0 ? fmtCOP(order.shipping) : 'Gratis' %></span>
+                    <span><%= order.deliveryMethod === 'entrega_personal' ? 'Entrega en persona ($ 0)' : (order.shipping > 0 ? fmtCOP(order.shipping) : 'Gratis') %></span>
                 </div>
                 <div class="flex-between" style="font-size:1.25rem; padding-top:8px; border-top:1px solid var(--color-border);">
                     <strong>Total</strong>
@@ -135,11 +135,14 @@
         </section>
 
         <section class="card">
-            <h3>Datos de envío</h3>
+            <h3>Datos de entrega</h3>
             <p style="margin-top:12px;">
                 <strong><%= order.customer.name %></strong><br>
+                Modalidad: <strong><%= order.deliveryMethod === 'entrega_personal' ? 'Entrega en persona' : 'Envío a domicilio' %></strong><br>
+                <% if (order.deliveryMethod !== 'entrega_personal') { %>
                 <%= order.customer.address %><br>
                 <%= order.customer.city %>, <%= order.customer.department %><br>
+                <% } %>
                 Tel: <%= order.customer.phone %><br>
                 Email: <%= order.customer.email %>
             </p>
